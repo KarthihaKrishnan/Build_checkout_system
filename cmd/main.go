@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"internal/routes"
 	"log"
 	"net/http"
+
+	"github.com/karthihakrishnan/checkoutservice/internal/routes"
 
 	"github.com/gorilla/mux"
 )
