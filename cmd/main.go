@@ -1,8 +1,8 @@
 package main
 
 import (
-	"Build_checkout_system/pkg/routes"
 	"fmt"
+	"internal/routes"
 	"log"
 	"net/http"
 

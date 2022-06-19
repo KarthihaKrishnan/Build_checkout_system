@@ -1,4 +1,4 @@
-module Build_checkout_system
+module github.com/karthihakrishnan/checkoutservice
 
 go 1.16
 
