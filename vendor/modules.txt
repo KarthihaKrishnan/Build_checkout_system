@@ -24,12 +24,6 @@ github.com/goccy/go-json/internal/encoder/vm_color_indent
 github.com/goccy/go-json/internal/encoder/vm_indent
 github.com/goccy/go-json/internal/errors
 github.com/goccy/go-json/internal/runtime
-# github.com/google/uuid v1.3.0
-## explicit
-github.com/google/uuid
-# github.com/gorilla/mux v1.8.0
-## explicit
-github.com/gorilla/mux
 # github.com/json-iterator/go v1.1.12
 github.com/json-iterator/go
 # github.com/leodido/go-urn v1.2.1
@@ -41,11 +35,13 @@ github.com/lib/pq/oid
 github.com/lib/pq/scram
 # github.com/mattn/go-isatty v0.0.14
 github.com/mattn/go-isatty
-# github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421
+# github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+## explicit
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 github.com/modern-go/reflect2
-# github.com/pelletier/go-toml/v2 v2.0.1
+# github.com/pelletier/go-toml/v2 v2.0.2
+## explicit
 github.com/pelletier/go-toml/v2
 github.com/pelletier/go-toml/v2/internal/ast
 github.com/pelletier/go-toml/v2/internal/danger

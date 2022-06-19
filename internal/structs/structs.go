@@ -2,6 +2,7 @@ package structs
 
 // Define Cart structure
 type Cart struct {
+	ID       string    `json:"id"`
 	Code     string    `json:"code"`
 	ItemName string    `jspn:"itemname"`
 	Products []Product `json:"products"`
@@ -12,8 +13,9 @@ type Cart struct {
 
 // Define Product structure
 type Product struct {
+	ID       string  `json:"id"`
 	Code     string  `json:"code"`
-	Itemname string  `json:"itemname"`
+	Itemname string  `json:"item_name"`
 	Price    float64 `json:"price"`
 	Quantity int64   `json:"quantity"`
 }

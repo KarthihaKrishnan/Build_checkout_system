@@ -7,7 +7,6 @@ import (
 	"github.com/karthihakrishnan/checkoutservice/internal/config"
 	. "github.com/karthihakrishnan/checkoutservice/internal/structs"
 
-	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -142,7 +141,7 @@ func GetAllProducts() ([]Product, error) {
 }
 
 func GetProductById(productId string) (*Product, error) {
-	row := db.QueryRow("SELECT * FROM public.shop_items WHERE id = ?", productId)
+	row := db.QueryRow("SELECT * FROM public.shop_items WHERE id = $1", productId)
 
 	var p Product
 	if err := row.Scan(&p.Code, &p.Itemname, &p.Price, &p.Quantity); err != nil {
@@ -180,7 +179,7 @@ func GetAllCarts() ([]Cart, error) {
 }
 
 func GetCartById(cartId string) (*Cart, error) {
-	row := db.QueryRow("SELECT * FROM public.purchased_item WHERE id = ?", cartId)
+	row := db.QueryRow("SELECT * FROM public.purchased_item WHERE id = $1", cartId)
 
 	var ca Cart
 	if err := row.Scan(&ca.Code, &ca.ItemName, &ca.Price, &ca.Quantity, &ca.Status); err != nil {
@@ -200,36 +199,38 @@ func GetCartById(cartId string) (*Cart, error) {
 }
 
 func AddProduct(product *Product) (string, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return "", fmt.Errorf("failed to generate uuid error: %s", err)
-	}
+	//id, err := uuid.NewV4()
+	var idReturned string
+	//	if err != nil {
+	//		return "", fmt.Errorf("failed to generate uuid error: %s", err)
+	//	}
 
-	_, err = db.Query("INSERT INTO public.shop_items (CODE, ITEMNAME, PRICE, QUANTITY) VALUES (?,?,?,?)", id.String(), product.Itemname, product.Price, product.Quantity)
+	_, err := db.Query("INSERT INTO public.products (code, item_name, price, quantity) VALUES ($1,$2,$3,$4) RETURNING id", product.Code, product.Itemname, product.Price, product.Quantity, idReturned)
 	if err != nil {
 		return "", fmt.Errorf("failed to add product to the database, error: %s", err)
 	}
 
-	return id.String(), nil
+	return idReturned, nil
 }
 
 func AddCart(cart *Cart) (string, error) {
-	id, err := uuid.New()
+	/*id, err := uuid.New()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate uuid error: %s", err)
-	}
+	}*/
+	var idReturned string
 
-	_, err = db.Query("INSERT INTO public.purchased_item (CODE, ITEMNAME, PRICE, QUANTITY, Status) VALUES (?,?,?,?,?)", id.String(), cart.ItemName, cart.Price, cart.Quantity, cart.Status)
+	_, err := db.Query("INSERT INTO public.orders (code, item_name, price, quantity, status) VALUES ($1,$2,$3,$4,$5) RETURNING id", cart.Code, cart.ItemName, cart.Price, cart.Quantity, cart.Status, idReturned)
 	if err != nil {
 		return "", fmt.Errorf("failed to add cart to the database, error: %s", err)
 	}
 
-	return id.String(), nil
+	return idReturned, nil
 }
 
 func UpdateProduct(product *Product) error {
 
-	result, err := db.Exec("UPDATE public.shop_items SET ITEMNAME = $1, PRICE = $2, QUANTITY = $3 WHERE ID = $4", product.Itemname, product.Price, product.Quantity, product.Code)
+	result, err := db.Exec("UPDATE public.products SET item_name = $1, price = $2, quantity = $3, code = $4 WHERE id = $5", product.Itemname, product.Price, product.Quantity, product.Code, product.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update product to the database, error: %s", err)
 	}
@@ -244,7 +245,7 @@ func UpdateProduct(product *Product) error {
 
 func UpdateCart(cart *Cart) error {
 
-	result, err := db.Exec("UPDATE public.purchased_item SET ITEMNAME = ?, PRICE = ?, QUANTITY = ?, STATUS = ? WHERE ID = ?", cart.ItemName, cart.Price, cart.Quantity, cart.Status, cart.Code)
+	result, err := db.Exec("UPDATE public.orders SET item_name = $1, price = $2, quantity = $3, status = $4 WHERE id = $5", cart.ItemName, cart.Price, cart.Quantity, cart.Status, cart.Code, cart.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update cart to the database, error: %s", err)
 	}
@@ -258,7 +259,7 @@ func UpdateCart(cart *Cart) error {
 }
 
 func DeleteCart(cartId string) error {
-	result, err := db.Exec("DELETE FROM public.purchased_item WHERE ID = ?;", cartId)
+	result, err := db.Exec("DELETE FROM public.purchased_item WHERE id = $1;", cartId)
 	if err != nil {
 		return fmt.Errorf("failed to delete cart from the database, error: %s", err)
 	}
@@ -272,7 +273,7 @@ func DeleteCart(cartId string) error {
 }
 
 func DeleteAllProductsForACart(cartId string) error {
-	result, err := db.Exec("DELETE FROM cartedProduct WHERE CART_ID = ?;", cartId)
+	result, err := db.Exec("DELETE FROM cartedProduct WHERE id = $1;", cartId)
 	if err != nil {
 		return fmt.Errorf("failed to delete carted product from the database, error: %s", err)
 	}
@@ -286,7 +287,7 @@ func DeleteAllProductsForACart(cartId string) error {
 }
 
 func DeleteProduct(productId string) error {
-	result, err := db.Exec("DELETE FROM public.shop_items WHERE ID = ?;", productId)
+	result, err := db.Exec("DELETE FROM public.shop_items WHERE id = $1;", productId)
 	if err != nil {
 		return fmt.Errorf("failed to delete product from the database, error: %s", err)
 	}
@@ -302,7 +303,7 @@ func DeleteProduct(productId string) error {
 func ChangeProductQuantity(productId string, quantity int) error {
 	var p Product
 
-	row := db.QueryRow("SELECT * FROM public.shop_items WHERE id = ?", productId)
+	row := db.QueryRow("SELECT * FROM public.shop_items WHERE id = $1", productId)
 	if err := row.Scan(&p.Code, &p.Itemname, &p.Price, &p.Quantity); err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("no product with id: %s", productId)
@@ -325,7 +326,7 @@ func ChangeProductQuantity(productId string, quantity int) error {
 func GetAllProductsForCart(cartId string) ([]Product, error) {
 	var products []Product
 
-	rows, err := db.Query("SELECT product_id, quantity FROM cartedProduct WHERE cart_id = ?", cartId)
+	rows, err := db.Query("SELECT product_id, quantity FROM cartedProduct WHERE id = $1", cartId)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading carted product from database: %s", err)
 	}
@@ -350,12 +351,13 @@ func GetAllProductsForCart(cartId string) ([]Product, error) {
 }
 
 func AddCartedProduct(cp *CartedProduct) error {
-	id, err := uuid.NewV4()
+	/*id, err := uuid.NewV4()
 	if err != nil {
 		return fmt.Errorf("failed to generate uuid error: %s", err)
-	}
+	}*/
+	var idReturned string
 
-	_, err = db.Query("INSERT INTO cartedProduct (ID, PRODUCT_ID, QUANTITY,  CART_ID) VALUES (?,?,?,?)", id.String(), cp.ProductId, cp.ProductQuantity, cp.CartId)
+	_, err := db.Query("INSERT INTO public.cartedproduct (product_id, quantity,  cart_id) VALUES ($1,$2,$3) RETURNING id", cp.ProductId, cp.ProductQuantity, cp.CartId, idReturned)
 	if err != nil {
 		return fmt.Errorf("failed to add carted product to the database, error: %s", err)
 	}

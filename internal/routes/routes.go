@@ -1,4 +1,4 @@
-package routes
+/*package routes
 
 import (
 	"github.com/gin-gonic/gin"
@@ -20,3 +20,4 @@ var RegisterProductRoutes = func(router *mux.Router) {
 	//router.Handle("/product/google", controllers.FuncGoogleHomesPromotion(db)).Methods("GET")
 	//router.Handle("/product/alexa", controllers.FuncAlexaSpeakersPromotion(db)).Methods("GET")
 }
+*/
