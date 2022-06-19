@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"Build_checkout_system/pkg/models"
+	"github.com/karthihakrishnan/checkoutservice/internal/models"
 
 	"github.com/gorilla/mux"
 )
