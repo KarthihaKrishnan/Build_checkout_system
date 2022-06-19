@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/karthihakrishnan/checkoutservice/internal/models"
 
 	"github.com/gorilla/mux"
@@ -9,6 +10,7 @@ import (
 var RegisterProductRoutes = func(router *mux.Router) {
 	// Route handle & endpoints
 	//router.HandleFunc("/", homelink)
+	router := gin.Default()
 	router.HandleFunc("/product", models.FuncCreateNewProduct).Methods("POST")
 	//	router.HandleFunc("/products", models.FuncGetAllProducts).Methods("GET")
 	//router.HandleFunc("/products/{id}", FuncgetOneProduct).Methods("GET")

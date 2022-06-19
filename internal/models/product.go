@@ -3,11 +3,11 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"net/http"
 
 	"github.com/karthihakrishnan/checkoutservice/internal/config"
-	"github.com/karthihakrishnan/checkoutservice/internal/structs"
+	. "github.com/karthihakrishnan/checkoutservice/internal/structs"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -67,7 +67,7 @@ func setupDB() error {
 	var newProduct Product
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Fprintf(w, "Kindly enter data with the product only in order to update")
+		fmt.Fprintf(w, "Kindly enter data with the product only in cart to update")
 	}
 
 	json.Unmarshal(reqBody, &newProduct)
@@ -155,48 +155,48 @@ func GetProductById(productId string) (*Product, error) {
 	return &p, nil
 }
 
-func GetAllOrders() ([]Order, error) {
-	var orders []Order
+func GetAllCarts() ([]Cart, error) {
+	var carts []Cart
 
-	rows, _ := db.Query("SELECT * FROM orders")
+	rows, _ := db.Query("SELECT * FROM public.purchased_item")
 	defer rows.Close()
 
 	for rows.Next() {
-		var o Order
-		if err := rows.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Price, &o.Status); err != nil {
+		var ca Cart
+		if err := rows.Scan(&ca.Code, &ca.ItemName, &ca.Price, &ca.Quantity, &ca.Status); err != nil {
 			return nil, fmt.Errorf("getting all products failed with: %v", err)
 		}
 
-		products, err := GetAllProductsForOrder(o.ID)
+		products, err := GetAllProductsForCart(ca.Code)
 		if err != nil {
 			return nil, err
 		}
-		o.Products = products
+		ca.Products = products
 
-		orders = append(orders, o)
+		carts = append(carts, ca)
 	}
 
-	return orders, nil
+	return carts, nil
 }
 
-func GetOrderById(orderId string) (*Order, error) {
-	row := db.QueryRow("SELECT * FROM orders WHERE id = ?", orderId)
+func GetCartById(cartId string) (*Cart, error) {
+	row := db.QueryRow("SELECT * FROM public.purchased_item WHERE id = ?", cartId)
 
-	var o Order
-	if err := row.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Price, &o.Status); err != nil {
+	var ca Cart
+	if err := row.Scan(&ca.Code, &ca.ItemName, &ca.Price, &ca.Quantity, &ca.Status); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no order with id: %s", orderId)
+			return nil, fmt.Errorf("no cart with id: %s", cartId)
 		}
-		return nil, fmt.Errorf("searching for %s failed with: %s", orderId, err)
+		return nil, fmt.Errorf("searching for %s failed with: %s", cartId, err)
 	}
 
-	products, err := GetAllProductsForOrder(o.ID)
+	products, err := GetAllProductsForCart(ca.Code)
 	if err != nil {
 		return nil, err
 	}
-	o.Products = products
+	ca.Products = products
 
-	return &o, nil
+	return &ca, nil
 }
 
 func AddProduct(product *Product) (string, error) {
@@ -205,7 +205,7 @@ func AddProduct(product *Product) (string, error) {
 		return "", fmt.Errorf("failed to generate uuid error: %s", err)
 	}
 
-	_, err = db.Query("INSERT INTO products (ID, NAME, CATEGORY, QUANTITY, PRICE) VALUES (?,?,?,?,?)", id.String(), product.Name, product.Category, product.Quantity, product.Price)
+	_, err = db.Query("INSERT INTO public.shop_items (CODE, ITEMNAME, PRICE, QUANTITY) VALUES (?,?,?,?)", id.String(), product.Itemname, product.Price, product.Quantity)
 	if err != nil {
 		return "", fmt.Errorf("failed to add product to the database, error: %s", err)
 	}
@@ -213,15 +213,15 @@ func AddProduct(product *Product) (string, error) {
 	return id.String(), nil
 }
 
-func AddOrder(order *Order) (string, error) {
-	id, err := uuid.NewV4()
+func AddCart(cart *Cart) (string, error) {
+	id, err := uuid.New()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate uuid error: %s", err)
 	}
 
-	_, err = db.Query("INSERT INTO orders (ID, NAME, Address, Phone, Price, Status) VALUES (?,?,?,?,?,?)", id.String(), order.Name, order.Address, order.Phone, order.Price, order.Status)
+	_, err = db.Query("INSERT INTO public.purchased_item (CODE, ITEMNAME, PRICE, QUANTITY, Status) VALUES (?,?,?,?,?)", id.String(), cart.ItemName, cart.Price, cart.Quantity, cart.Status)
 	if err != nil {
-		return "", fmt.Errorf("failed to add order to the database, error: %s", err)
+		return "", fmt.Errorf("failed to add cart to the database, error: %s", err)
 	}
 
 	return id.String(), nil
@@ -229,64 +229,64 @@ func AddOrder(order *Order) (string, error) {
 
 func UpdateProduct(product *Product) error {
 
-	result, err := db.Exec("UPDATE products SET NAME = ?, CATEGORY = ?, QUANTITY = ?, PRICE = ? WHERE ID = ?", product.Name, product.Category, product.Quantity, product.Price, product.ID)
+	result, err := db.Exec("UPDATE public.shop_items SET ITEMNAME = $1, PRICE = $2, QUANTITY = $3 WHERE ID = $4", product.Itemname, product.Price, product.Quantity, product.Code)
 	if err != nil {
 		return fmt.Errorf("failed to update product to the database, error: %s", err)
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("no product with id: %s", product.ID)
+		return fmt.Errorf("no product with id: %s", product.Code)
 	}
 
 	return nil
 }
 
-func UpdateOrder(order *Order) error {
+func UpdateCart(cart *Cart) error {
 
-	result, err := db.Exec("UPDATE orders SET NAME = ?, ADDRESS = ?, PHONE = ?, PRICE = ? WHERE ID = ?", order.Name, order.Address, order.Phone, order.Price, order.ID)
+	result, err := db.Exec("UPDATE public.purchased_item SET ITEMNAME = ?, PRICE = ?, QUANTITY = ?, STATUS = ? WHERE ID = ?", cart.ItemName, cart.Price, cart.Quantity, cart.Status, cart.Code)
 	if err != nil {
-		return fmt.Errorf("failed to update order to the database, error: %s", err)
+		return fmt.Errorf("failed to update cart to the database, error: %s", err)
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("no product with id: %s", order.ID)
+		return fmt.Errorf("no product with id: %s", cart.Code)
 	}
 
 	return nil
 }
 
-func DeleteOrder(orderId string) error {
-	result, err := db.Exec("DELETE FROM orders WHERE ID = ?;", orderId)
+func DeleteCart(cartId string) error {
+	result, err := db.Exec("DELETE FROM public.purchased_item WHERE ID = ?;", cartId)
 	if err != nil {
-		return fmt.Errorf("failed to delete order from the database, error: %s", err)
+		return fmt.Errorf("failed to delete cart from the database, error: %s", err)
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("no order with id: %d", orderId)
+		return fmt.Errorf("no cart with id: %d", cartId)
 	}
 
 	return nil
 }
 
-func DeleteAllProductsForAnOrder(orderId string) error {
-	result, err := db.Exec("DELETE FROM orderedProduct WHERE ORDER_ID = ?;", orderId)
+func DeleteAllProductsForACart(cartId string) error {
+	result, err := db.Exec("DELETE FROM cartedProduct WHERE CART_ID = ?;", cartId)
 	if err != nil {
-		return fmt.Errorf("failed to delete ordered product from the database, error: %s", err)
+		return fmt.Errorf("failed to delete carted product from the database, error: %s", err)
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("no order with id: %d", orderId)
+		return fmt.Errorf("no cart with id: %d", cartId)
 	}
 
 	return nil
 }
 
 func DeleteProduct(productId string) error {
-	result, err := db.Exec("DELETE FROM products WHERE ID = ?;", productId)
+	result, err := db.Exec("DELETE FROM public.shop_items WHERE ID = ?;", productId)
 	if err != nil {
 		return fmt.Errorf("failed to delete product from the database, error: %s", err)
 	}
@@ -302,46 +302,46 @@ func DeleteProduct(productId string) error {
 func ChangeProductQuantity(productId string, quantity int) error {
 	var p Product
 
-	row := db.QueryRow("SELECT * FROM products WHERE id = ?", productId)
-	if err := row.Scan(&p.ID, &p.Name, &p.Category, &p.Quantity, &p.Price); err != nil {
+	row := db.QueryRow("SELECT * FROM public.shop_items WHERE id = ?", productId)
+	if err := row.Scan(&p.Code, &p.Itemname, &p.Price, &p.Quantity); err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("no product with id: %s", productId)
 		}
 		return fmt.Errorf("searching for id: %s failed with: %s", productId, err)
 	}
 
-	newQuantity := p.Quantity - quantity
+	newQuantity := int(p.Quantity) - quantity
 	if newQuantity < 0 {
-		return fmt.Errorf("not enough quantity of product: %s", p.Name)
+		return fmt.Errorf("not enough quantity of product: %s", p.Itemname)
 	}
 
-	if _, err := db.Query("UPDATE products SET quantity = ? WHERE id = ?", newQuantity, p.ID); err != nil {
+	if _, err := db.Query("UPDATE public.shop_items SET quantity = ? WHERE id = ?", newQuantity, p.Code); err != nil {
 		return fmt.Errorf("updating quantity failed with: %s", err)
 	}
 
 	return nil
 }
 
-func GetAllProductsForOrder(orderId string) ([]Product, error) {
+func GetAllProductsForCart(cartId string) ([]Product, error) {
 	var products []Product
 
-	rows, err := db.Query("SELECT product_id, quantity FROM orderedProduct WHERE order_id = ?", orderId)
+	rows, err := db.Query("SELECT product_id, quantity FROM cartedProduct WHERE cart_id = ?", cartId)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading ordered product from database: %s", err)
+		return nil, fmt.Errorf("error while reading carted product from database: %s", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var p Product
-		if err := rows.Scan(&p.ID, &p.Quantity); err != nil {
+		if err := rows.Scan(&p.Code, &p.Quantity); err != nil {
 			return nil, fmt.Errorf("parsing to a product failed with: %v", err)
 		}
 
-		details, err := GetProductById(p.ID)
+		details, err := GetProductById(p.Code)
 		if err != nil {
 			return nil, err
 		}
-		p.Name, p.Category, p.Price = details.Name, details.Category, details.Price
+		p.Itemname, p.Quantity, p.Price = details.Itemname, details.Quantity, details.Price
 
 		products = append(products, p)
 	}
@@ -349,15 +349,15 @@ func GetAllProductsForOrder(orderId string) ([]Product, error) {
 	return products, nil
 }
 
-func AddOrderedProduct(op *OrderedProduct) error {
+func AddCartedProduct(cp *CartedProduct) error {
 	id, err := uuid.NewV4()
 	if err != nil {
 		return fmt.Errorf("failed to generate uuid error: %s", err)
 	}
 
-	_, err = db.Query("INSERT INTO orderedProduct (ID, PRODUCT_ID, QUANTITY,  ORDER_ID) VALUES (?,?,?,?)", id.String(), op.ProductId, op.ProductQuantity, op.OrderId)
+	_, err = db.Query("INSERT INTO cartedProduct (ID, PRODUCT_ID, QUANTITY,  CART_ID) VALUES (?,?,?,?)", id.String(), cp.ProductId, cp.ProductQuantity, cp.CartId)
 	if err != nil {
-		return fmt.Errorf("failed to add ordered product to the database, error: %s", err)
+		return fmt.Errorf("failed to add carted product to the database, error: %s", err)
 	}
 
 	return nil
@@ -399,7 +399,7 @@ func FuncupdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Fprintf(w, "Kindly enter data with the product only in order to update")
+		fmt.Fprintf(w, "Kindly enter data with the product only in cart to update")
 	}
 	json.Unmarshal(reqBody, &updatedProduct)
 

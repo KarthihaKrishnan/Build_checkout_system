@@ -18,11 +18,11 @@ type Product struct {
 	Quantity int64   `json:"quantity"`
 }
 
-type OrderedProduct struct {
+type CartedProduct struct {
 	ID              string
 	ProductId       string
 	ProductQuantity int
-	OrderId         string
+	CartId          string
 }
 
 type ExampleOrderRequest struct {

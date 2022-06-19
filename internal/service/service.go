@@ -3,10 +3,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/karthihakrishnan/checkoutservice/internal/config"
-	. "github.com/karthihakrishnan/checkoutservice/internal/structs"
 	"math"
 	"net/http"
+
+	"github.com/karthihakrishnan/checkoutservice/internal/models"
+	. "github.com/karthihakrishnan/checkoutservice/internal/structs"
 )
 
 type ExchangeRateAPIResponse struct {
@@ -25,7 +26,7 @@ type ExchangeRateAPIResponse struct {
 }
 
 func GetAllProducts(currency string) ([]Product, error) {
-	products, err := database.GetAllProducts()
+	products, err := models.GetAllProducts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
 	}
@@ -41,7 +42,7 @@ func GetAllProducts(currency string) ([]Product, error) {
 }
 
 func GetProductById(id string, currency string) (*Product, error) {
-	product, err := database.GetProductById(id)
+	product, err := models.GetProductById(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find such product error: %s\n", err)
 	}
@@ -53,44 +54,44 @@ func GetProductById(id string, currency string) (*Product, error) {
 	return product, nil
 }
 
-func GetAllOrders(currency string) ([]Order, error) {
-	orders, err := database.GetAllOrders()
+func GetAllCarts(currency string) ([]Cart, error) {
+	carts, err := models.GetAllCarts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
 	}
 
-	for i := range orders {
-		if err = convertPrice(&orders[i], currency); err != nil {
+	for i := range carts {
+		if err = convertPrice(&carts[i], currency); err != nil {
 			return nil, err
 		}
 	}
 
-	return orders, nil
+	return carts, nil
 }
 
-func GetOrderById(id string, currency string) (*Order, error) {
-	order, err := database.GetOrderById(id)
+func GetCartById(id string, currency string) (*Cart, error) {
+	cart, err := models.GetCartById(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find such order error: %s\n", err)
+		return nil, fmt.Errorf("failed to find such cart error: %s\n", err)
 	}
 
-	if err = convertPrice(&order, currency); err != nil {
+	if err = convertPrice(&cart, currency); err != nil {
 		return nil, err
 	}
 
-	return order, nil
+	return cart, nil
 }
 
-func AddOrder(order *Order) (string, error) {
+func AddCart(cart *Cart) (string, error) {
 	totalPrice := 0.0
 
-	for _, p := range order.Products {
-		err := database.ChangeProductQuantity(p.ID, p.Quantity)
+	for _, p := range cart.Products {
+		err := models.ChangeProductQuantity(p.Code, int(p.Quantity))
 		if err != nil {
 			return "", err
 		}
 
-		product, err := database.GetProductById(p.ID)
+		product, err := models.GetProductById(p.Code)
 		if err != nil {
 			return "", err
 		}
@@ -98,30 +99,30 @@ func AddOrder(order *Order) (string, error) {
 		totalPrice += product.Price * float64(p.Quantity)
 	}
 
-	order.Price = totalPrice
-	order.Status = "Accepted"
+	cart.Price = totalPrice
+	cart.Status = "Accepted"
 
-	orderId, err := database.AddOrder(order)
+	cartId, err := models.AddCart(cart)
 	if err != nil {
 		return "", err
 	}
 
-	for _, p := range order.Products {
-		err = database.AddOrderedProduct(&OrderedProduct{
-			ProductId:       p.ID,
-			ProductQuantity: p.Quantity,
-			OrderId:         orderId,
+	for _, p := range cart.Products {
+		err = models.AddCartedProduct(&CartedProduct{
+			ProductId:       p.Code,
+			ProductQuantity: int(p.Quantity),
+			CartId:          cartId,
 		})
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return orderId, nil
+	return cartId, nil
 }
 
 func AddProduct(product *Product) (string, error) {
-	productId, err := database.AddProduct(product)
+	productId, err := models.AddProduct(product)
 	if err != nil {
 		return "", err
 	}
@@ -130,7 +131,7 @@ func AddProduct(product *Product) (string, error) {
 }
 
 func UpdateProduct(product *Product) error {
-	err := database.UpdateProduct(product)
+	err := models.UpdateProduct(product)
 	if err != nil {
 		return err
 	}
@@ -138,8 +139,8 @@ func UpdateProduct(product *Product) error {
 	return nil
 }
 
-func UpdateOrder(order *Order) error {
-	err := database.UpdateOrder(order)
+func UpdateCart(cart *Cart) error {
+	err := models.UpdateCart(cart)
 	if err != nil {
 		return err
 	}
@@ -147,12 +148,12 @@ func UpdateOrder(order *Order) error {
 	return nil
 }
 
-func DeleteOrder(orderId string) error {
-	if err := database.DeleteAllProductsForAnOrder(orderId); err != nil {
+func DeleteCart(cartId string) error {
+	if err := models.DeleteAllProductsForACart(cartId); err != nil {
 		return err
 	}
 
-	if err := database.DeleteOrder(orderId); err != nil {
+	if err := models.DeleteCart(cartId); err != nil {
 		return err
 	}
 
@@ -160,7 +161,7 @@ func DeleteOrder(orderId string) error {
 }
 
 func DeleteProduct(productId string) error {
-	if err := database.DeleteProduct(productId); err != nil {
+	if err := models.DeleteProduct(productId); err != nil {
 		return err
 	}
 
@@ -178,7 +179,7 @@ func convertPrice(object interface{}, currency string) error {
 	}
 
 	switch v := object.(type) {
-	case *Order:
+	case *Cart:
 		{
 			v.Price = math.Round(rate*v.Price*100) / 100
 			for i := range v.Products {

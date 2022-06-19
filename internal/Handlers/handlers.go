@@ -41,11 +41,11 @@ func GetProductHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, product)
 }
 
-// Get all orders from the shop
-func GetAllOrdersHandler(c *gin.Context) {
+// Get all carts from the shop
+func GetAllCartsHandler(c *gin.Context) {
 	currency := c.Param("currency")
 
-	orders, err := service.GetAllOrders(currency)
+	carts, err := service.GetAllCarts(currency)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 
@@ -53,15 +53,15 @@ func GetAllOrdersHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, orders)
+	c.JSON(http.StatusOK, carts)
 }
 
-//Get a order by id from the shop
-func GetOrderHandler(c *gin.Context) {
+//Get a cart by id from the shop
+func GetCartHandler(c *gin.Context) {
 	currency := c.Param("currency")
-	orderId := c.Param("orderId")
+	cartId := c.Param("cartId")
 
-	order, err := service.GetOrderById(orderId, currency)
+	cart, err := service.GetCartById(cartId, currency)
 	if err != nil {
 		c.String(http.StatusNotFound, err.Error())
 
@@ -69,14 +69,14 @@ func GetOrderHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, order)
+	c.JSON(http.StatusOK, cart)
 }
 
-//Submit a new order
-func AddOrderHandler(c *gin.Context) {
+//Submit a new cart
+func AddCartHandler(c *gin.Context) {
 	decoder := json.NewDecoder(c.Request.Body)
-	var order structs.Order
-	err := decoder.Decode(&order)
+	var cart structs.Cart
+	err := decoder.Decode(&cart)
 	if err != nil {
 		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
 
@@ -84,7 +84,7 @@ func AddOrderHandler(c *gin.Context) {
 		return
 	}
 
-	orderID, err := service.AddOrder(&order)
+	cartID, err := service.AddCart(&cart)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "not enough quantity") {
 			c.String(http.StatusBadRequest, err.Error())
@@ -99,7 +99,7 @@ func AddOrderHandler(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusOK, "Successful purchase: %s", orderID)
+	c.String(http.StatusOK, "Successful purchase: %s", cartID)
 }
 
 //Add a new product
@@ -125,11 +125,11 @@ func AddProductHandler(c *gin.Context) {
 	c.String(http.StatusOK, "Product successfully added id: %s", productID)
 }
 
-//Update an order
-func UpdateOrderHandler(c *gin.Context) {
+//Update an cart
+func UpdateCartHandler(c *gin.Context) {
 	decoder := json.NewDecoder(c.Request.Body)
-	var order structs.Order
-	err := decoder.Decode(&order)
+	var cart structs.Cart
+	err := decoder.Decode(&cart)
 	if err != nil {
 		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
 
@@ -137,16 +137,16 @@ func UpdateOrderHandler(c *gin.Context) {
 		return
 	}
 
-	order.ID = c.Param("orderId")
+	cart.Code = c.Param("cartId")
 
-	if err = service.UpdateOrder(&order); err != nil {
+	if err = service.UpdateCart(&cart); err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusOK, "Order %s successfully updated", order.ID)
+	c.String(http.StatusOK, "Cart %s successfully updated", cart.Code)
 }
 
 //Update a product
@@ -161,7 +161,7 @@ func UpdateProductHandler(c *gin.Context) {
 		return
 	}
 
-	product.ID = c.Param("productId")
+	product.Code = c.Param("productId")
 
 	if err = service.UpdateProduct(&product); err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
@@ -170,7 +170,7 @@ func UpdateProductHandler(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusInternalServerError, "Product %s updated succesfully!", product.ID)
+	c.String(http.StatusInternalServerError, "Product %s updated succesfully!", product.Code)
 }
 
 //Delete a product
@@ -187,18 +187,18 @@ func DeleteProductHandler(c *gin.Context) {
 	c.String(http.StatusOK, "Product %s deleted", productId)
 }
 
-//Delete an order
-func DeleteOrderHandler(c *gin.Context) {
-	orderId := c.Param("orderId")
+//Delete an cart
+func DeleteCartHandler(c *gin.Context) {
+	cartId := c.Param("cartId")
 
-	if err := service.DeleteOrder(orderId); err != nil {
+	if err := service.DeleteCart(cartId); err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusInternalServerError, "order %s deleted", orderId)
+	c.String(http.StatusInternalServerError, "cart %s deleted", cartId)
 }
 
 //	"database/sql"
