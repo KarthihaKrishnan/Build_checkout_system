@@ -6,8 +6,8 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/karthihakrishnan/checkoutservice/internal/models"
-	. "github.com/karthihakrishnan/checkoutservice/internal/structs"
+	"github.com/karthihakrishnan/checkoutservice/internal/database"
+	"github.com/karthihakrishnan/checkoutservice/internal/structs"
 )
 
 type ExchangeRateAPIResponse struct {
@@ -25,10 +25,10 @@ type ExchangeRateAPIResponse struct {
 	} `json:"rates"`
 }
 
-func GetAllProducts(currency string) ([]Product, error) {
-	products, err := models.GetAllProducts()
+func GetAllProducts(currency string) ([]structs.Product, error) {
+	products, err := database.GetAllProducts()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
+		return nil, fmt.Errorf("failed to get all products with error: %s", err)
 	}
 
 	for i := range products {
@@ -41,10 +41,10 @@ func GetAllProducts(currency string) ([]Product, error) {
 	return products, nil
 }
 
-func GetProductById(id string, currency string) (*Product, error) {
-	product, err := models.GetProductById(id)
+func GetProductById(id string, currency string) (*structs.Product, error) {
+	product, err := database.GetProductById(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find such product error: %s\n", err)
+		return nil, fmt.Errorf("failed to find such product error: %s", err)
 	}
 
 	if err = convertPrice(&product, currency); err != nil {
@@ -54,75 +54,75 @@ func GetProductById(id string, currency string) (*Product, error) {
 	return product, nil
 }
 
-func GetAllCarts(currency string) ([]Cart, error) {
-	carts, err := models.GetAllCarts()
+func GetAllOrders(currency string) ([]structs.Order, error) {
+	orders, err := database.GetAllOrders()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
+		return nil, fmt.Errorf("failed to get all products with error: %s", err)
 	}
 
-	for i := range carts {
-		if err = convertPrice(&carts[i], currency); err != nil {
+	for i := range orders {
+		if err = convertPrice(&orders[i], currency); err != nil {
 			return nil, err
 		}
 	}
 
-	return carts, nil
+	return orders, nil
 }
 
-func GetCartById(id string, currency string) (*Cart, error) {
-	cart, err := models.GetCartById(id)
+func GetOrderById(id string, currency string) (*structs.Order, error) {
+	order, err := database.GetOrderById(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find such cart error: %s\n", err)
+		return nil, fmt.Errorf("failed to find such order error: %s", err)
 	}
 
-	if err = convertPrice(&cart, currency); err != nil {
+	if err = convertPrice(&order, currency); err != nil {
 		return nil, err
 	}
 
-	return cart, nil
+	return order, nil
 }
 
-func AddCart(cart *Cart) (string, error) {
+func AddOrder(order *structs.Order) (string, error) {
 	totalPrice := 0.0
 
-	for _, p := range cart.Products {
-		err := models.ChangeProductQuantity(p.Code, int(p.Quantity))
+	for _, p := range order.Products {
+		err := database.ChangeProductQuantity(p.ID, p.Qty)
 		if err != nil {
 			return "", err
 		}
 
-		product, err := models.GetProductById(p.Code)
+		product, err := database.GetProductById(p.ID)
 		if err != nil {
 			return "", err
 		}
 
-		totalPrice += product.Price * float64(p.Quantity)
+		totalPrice += product.Price * float64(p.Qty)
 	}
 
-	cart.Price = totalPrice
-	cart.Status = "Accepted"
+	order.Price = totalPrice
+	order.Status = "Accepted"
 
-	cartId, err := models.AddCart(cart)
+	orderId, err := database.AddOrder(order)
 	if err != nil {
 		return "", err
 	}
 
-	for _, p := range cart.Products {
-		err = models.AddCartedProduct(&CartedProduct{
-			ProductId:       p.Code,
-			ProductQuantity: int(p.Quantity),
-			CartId:          cartId,
+	for _, p := range order.Products {
+		err = database.AddOrderedProduct(&structs.OrderedProduct{
+			ProductId:       p.ID,
+			ProductQuantity: p.Qty,
+			OrderId:         orderId,
 		})
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return cartId, nil
+	return orderId, nil
 }
 
-func AddProduct(product *Product) (string, error) {
-	productId, err := models.AddProduct(product)
+func AddProduct(product *structs.Product) (string, error) {
+	productId, err := database.AddProduct(product)
 	if err != nil {
 		return "", err
 	}
@@ -130,8 +130,8 @@ func AddProduct(product *Product) (string, error) {
 	return productId, nil
 }
 
-func UpdateProduct(product *Product) error {
-	err := models.UpdateProduct(product)
+func UpdateProduct(product *structs.Product) error {
+	err := database.UpdateProduct(product)
 	if err != nil {
 		return err
 	}
@@ -139,8 +139,8 @@ func UpdateProduct(product *Product) error {
 	return nil
 }
 
-func UpdateCart(cart *Cart) error {
-	err := models.UpdateCart(cart)
+func UpdateOrder(order *structs.Order) error {
+	err := database.UpdateOrder(order)
 	if err != nil {
 		return err
 	}
@@ -148,12 +148,12 @@ func UpdateCart(cart *Cart) error {
 	return nil
 }
 
-func DeleteCart(cartId string) error {
-	if err := models.DeleteAllProductsForACart(cartId); err != nil {
+func DeleteOrder(orderId string) error {
+	if err := database.DeleteAllProductsForAnOrder(orderId); err != nil {
 		return err
 	}
 
-	if err := models.DeleteCart(cartId); err != nil {
+	if err := database.DeleteOrder(orderId); err != nil {
 		return err
 	}
 
@@ -161,7 +161,7 @@ func DeleteCart(cartId string) error {
 }
 
 func DeleteProduct(productId string) error {
-	if err := models.DeleteProduct(productId); err != nil {
+	if err := database.DeleteProduct(productId); err != nil {
 		return err
 	}
 
@@ -179,14 +179,14 @@ func convertPrice(object interface{}, currency string) error {
 	}
 
 	switch v := object.(type) {
-	case *Cart:
+	case *structs.Order:
 		{
 			v.Price = math.Round(rate*v.Price*100) / 100
 			for i := range v.Products {
 				v.Products[i].Price = math.Round(rate*v.Products[i].Price*100) / 100
 			}
 		}
-	case *Product:
+	case *structs.Product:
 		{
 			v.Price = math.Round(rate*v.Price*100) / 100
 		}
